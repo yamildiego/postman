@@ -5,8 +5,6 @@ const cors = require("cors");
 const routesApi = require("./src/routes/api");
 const config = require("./src/constants/config");
 
-let svr = config.IS_PRODUCTION ? "/server_1" : "";
-
 const app = express();
 app.use(express.json());
 app.use(session({ secret: "8JyLd{C7fk]JF4Ha>", saveUninitialized: true, resave: true }));
@@ -26,8 +24,10 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(`${svr}/api`, routesApi);
+app.use(`/`, routesApi);
 
-app.listen(5000, () => {
+const port = process.env.port || 5000;
+
+app.listen(port, () => {
   console.log("Server has started!");
 });
