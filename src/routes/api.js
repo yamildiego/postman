@@ -9,8 +9,8 @@ const websites = [
       port: 465,
       secure: true,
       auth: {
-        user: "yamildiego91@gmail.com",
-        pass: "uouam6tqvp",
+        user: process.env.EMAIL,
+        pass: process.env.PASSWORD,
       },
     },
     name: "VerdeAgostini",
@@ -22,8 +22,8 @@ const websites = [
       port: 465,
       secure: true,
       auth: {
-        user: "yamildiego91@gmail.com",
-        pass: "uouam6tqvp",
+        user: process.env.EMAIL,
+        pass: process.env.PASSWORD,
       },
     },
     name: "TEDxVILLALAANGOSTURA",
