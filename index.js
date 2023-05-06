@@ -11,7 +11,9 @@ const routesClient = require("./myb/routes/client");
 const routesModule = require("./myb/routes/module");
 const routesProfile = require("./myb/routes/profile");
 const routesUser = require("./myb/routes/user");
-const routesRank = require("./myb/routes/rank");
+
+//game
+const routesRank = require("./rank/routes/rank");
 
 //ecommerce
 const routesProducts = require("./ecommerce/routes/products");

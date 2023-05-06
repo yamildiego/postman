@@ -2,7 +2,7 @@ const Profile = require("../models/Profile");
 const User = require("../models/User");
 const Client = require("../models/Client");
 const Module = require("../models/Module");
-const Product = require("../models/Product");
+const Product = require("../../ecommerce/models/Product");
 const { ObjectId } = require("mongodb");
 
 const getClass = (mod) => {
