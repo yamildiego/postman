@@ -7,10 +7,9 @@ const ClientSchema = mongoose.Schema({
   name: String,
   key: String,
   logoUrl: String,
-  expiration_date: Number,
-  admin: ObjectId,
+  userAdmin: ObjectId,
+  profileAdmin: ObjectId,
   modules: [String],
-  active: Boolean,
   theme: {
     palette: {
       primary: {
@@ -27,6 +26,8 @@ const ClientSchema = mongoose.Schema({
       },
     },
   },
+  active: Boolean,
+  keyClient: String,
   deleted: Boolean,
 });
 

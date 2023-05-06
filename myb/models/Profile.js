@@ -7,8 +7,8 @@ const ProfileSchema = mongoose.Schema({
   name: String,
   profiles: [String],
   permissions: [{ keyModule: String, options: [String] }],
-  keyClient: String,
   active: Boolean,
+  keyClient: String,
   deleted: Boolean,
 });
 

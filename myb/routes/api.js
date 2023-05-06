@@ -6,65 +6,54 @@ const Profile = require("../models/Profile");
 const Client = require("../models/Client");
 const Module = require("../models/Module");
 const User = require("../models/User");
-const Config = require("./../constants/Config");
 
-router.get("/", async (req, res) => {
-  res.send({ status: "OK" });
-});
+const baseValidation = require("../validations/baseValidation");
+const formatJoiErrors = require("../validations/formatJoiErrors");
 
-router.post("/loadClients", async (req, res) => {
-  let user = req.session.user;
+const getItemData = require("../functions/getItemData");
 
-  if (user.profile === Config.ID_SUPERADMIN) {
-    Client.find({ deleted: false }, (err, items) => {
-      let values = {};
-      items.forEach((item) => {
-        values[item.key] = item.name;
-      });
-      res.send({ status: "OK", values });
-    });
-  } else res.send({ status: "Errors.UNEXPECTED_ERROR" });
-});
+const errors = require("../constants/errors");
 
-router.post("/reloadConfig", async (req, res) => {
-  let dataPost = { ...req.body };
-  let user = req.session.user;
+router.post("/loadConfig", async (req, res) => {
+  const user = req.session.user;
+  const { keyClient } = user;
   let mod = [];
+  try {
+    const client = await Client.findOne({ key: keyClient, deleted: false });
 
-  let keyClient = dataPost.keyClient ? dataPost.keyClient : user.keyClient;
+    if (!client) return res.status(400).send({ status: errors.UNEXPECTED_ERROR });
+    else {
+      let theme =
+        "theme" in client &&
+        "palette" in client.theme &&
+        "primary" in client.theme.palette &&
+        "main" in client.theme.palette.primary &&
+        client.theme.palette.primary.main
+          ? client.theme
+          : null;
 
-  Client.find({ key: keyClient }, (err, elements) => {
-    let client = elements[0];
-    let theme =
-      "theme" in client &&
-      "palette" in client.theme &&
-      "primary" in client.theme.palette &&
-      "main" in client.theme.palette.primary &&
-      client.theme.palette.primary.main
-        ? client.theme
-        : null;
-    Module.find({ key: { $in: client.modules } }, (err, docs) => {
-      docs.forEach((item) => {
-        mod.push(getModuleData(item));
-      });
+      const modules = await Module.find({ key: { $in: client.modules }, deleted: false });
+      modules.forEach((item) => mod.push(getModuleData(item)));
 
-      let permissions = [];
+      const profile = await Profile.findById(user.profile);
 
-      if (user.profile == Config.ID_SUPERADMIN) {
-        if (client.admin) {
-          Profile.findById(client.admin, (err, profile) => {
-            if (profile) permissions = getPermissionsData(profile.permissions);
-            res.send({ status: "OK", user, modules: mod, permissions, name: client.name, logo: client.logoUrl, theme });
-          });
-        } else res.send({ status: "OK", user, modules: mod, permissions, name: client.name, logo: client.logoUrl, theme });
-      } else {
-        Profile.findById(user.profile, (err, profile) => {
-          if (profile) permissions = getPermissionsData(profile.permissions);
-          res.send({ status: "OK", user, modules: mod, permissions, name: client.name, logo: client.logoUrl, theme });
+      if (!profile) return res.status(400).send({ status: errors.UNEXPECTED_ERROR });
+      else {
+        res.send({
+          status: "OK",
+          user,
+          modules: mod,
+          admin: { user: client.userAdmin, profile: client.profileAdmin },
+          permissions: getPermissionsData(profile.permissions),
+          name: client.name,
+          logo: client.logoUrl,
+          theme,
         });
       }
-    });
-  });
+    }
+  } catch (error) {
+    res.status(500).send({ status: errors.UNEXPECTED_ERROR });
+  }
 });
 
 router.post("/login", async (req, res) => {
@@ -72,27 +61,33 @@ router.post("/login", async (req, res) => {
     ...req.body,
     username: req.body.username ? req.body.username.toLowerCase() : "",
   };
-  let errors = {};
 
-  if (!dataPost.username) errors["username"] = { error: true, helperText: "required" };
-  if (!dataPost.password) errors["password"] = { error: true, helperText: "required" };
-  if (!dataPost.password) errors["password"] = { error: true, helperText: "required" };
+  const { error, value } = baseValidation.loginValidation(req.body);
 
-  if (Object.keys(errors).length > 0) res.send({ status: "ERROR", errors });
+  if (error) return res.status(400).send({ status: "ERROR", errors: formatJoiErrors(error.details) });
   else {
-    User.find({ $and: [{ user: dataPost.username, password: md5(dataPost.password), deleted: false }] }, (err, users) => {
-      if (err) res.send({ status: "Errors.UNEXPECTED_ERROR" });
-      if (users.length > 0) {
-        let data = getItemData(users[0]);
+    try {
+      const user = await User.findOne({ username: dataPost.username, password: md5(dataPost.password), deleted: false });
+
+      if (!user) res.status(400).send({ status: "ERROR", errors: { password: { error: true, keyHelperText: errors.WRONG_DATA } } });
+      else {
+        if (!user.active) return res.status(400).send({ status: errors.USER_NO_ACTIVE });
+        const profile = await Profile.findById(user.profile);
+        if (!profile) return res.status(400).send({ status: errors.UNEXPECTED_ERROR });
+        if (!profile.active) return res.status(400).send({ status: errors.PROFILE_NO_ACTIVE });
+        const client = await Client.findOne({ key: user.keyClient });
+        if (!client) return res.status(400).send({ status: errors.UNEXPECTED_ERROR });
+        if (!client.active) return res.status(400).send({ status: errors.CLIENT_NO_ACTIVE });
+
+        let data = getItemData(user, true);
         let session = req.session;
         session.user = data;
         req.session.save();
         res.send({ status: "OK", data });
-      } else {
-        errors["password"] = { error: true, helperText: "wrongData" };
-        res.send({ status: "ERROR", errors });
       }
-    });
+    } catch (error) {
+      res.status(400).send({ status: "ERROR", errors: { password: { error: true, keyHelperText: errors.UNEXPECTED_ERROR } } });
+    }
   }
 });
 
@@ -102,12 +97,6 @@ router.post("/logout", async (req, res) => {
 
   res.send({ status: "OK" });
 });
-
-function getItemData(item) {
-  let data = item.toObject();
-  delete data.password, delete data.deleted, delete data.__v;
-  return data;
-}
 
 function getModuleData(mod) {
   let data = mod.toObject();

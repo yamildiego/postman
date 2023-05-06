@@ -3,140 +3,121 @@ const router = express.Router();
 var ObjectId = require("mongodb").ObjectID;
 
 const moduleHelper = require("./../functions/moduleHelper");
+const getItems = require("./../functions/getItems");
+const toMongooseFilter = require("./../functions/toMongooseFilter");
 const Profile = require("./../models/Profile");
 const Module = require("./../models/Module");
-const Config = require("../constants/Config");
-const checkIsSuperAdmin = require("../functions/checkIsSuperAdmin");
+const errors = require("../constants/errors");
 
 router.post("/getItems", async (req, res) => {
-  let dataPost = { ...req.body };
-  let initFilter = { deleted: false };
-  let options = { page: dataPost.page ? dataPost.page : 1 };
-  let isSuperAdmin = req.session.user.profile == Config.ID_SUPERADMIN;
-  if (!isSuperAdmin) initFilter["keyClient"] = req.session.user.keyClient;
+  const { keyClient } = req.session.user;
+  const { module: moduleName, page = 1, pageSize, sorting, filtering } = req.body;
+  const initFilter = { deleted: false, keyClient, ...(filtering ? { ...toMongooseFilter(filtering) } : {}) };
+  const sort = sorting?.reduce((acc, sortItem) => {
+    acc[sortItem.field] = sortItem.sort === "desc" ? -1 : 1;
+    return acc;
+  }, {});
+  const options = { page, ...(pageSize ? { limit: pageSize } : {}), ...(sort ? { sort } : {}) };
 
-  elements(res, dataPost.module, initFilter, options);
+  getItems(res, moduleName, initFilter, options);
 });
 
 router.post("/new", async (req, res) => {
-  let dataPost = { ...req.body };
-  let initFilter = { deleted: false };
-  let options = { page: dataPost.page ? dataPost.page : 1 };
-  let user = req.session.user;
-  let isSuperAdmin = user.profile == Config.ID_SUPERADMIN;
-  let keyClient = user.keyClient;
+  const { keyClient } = req.session.user;
+  const { module: moduleName } = req.body;
 
-  if (!isSuperAdmin) initFilter["keyClient"] = user.keyClient;
-  else keyClient = dataPost.keyClient;
+  try {
+    let dataPost = { ...req.body };
+    let newItem = moduleHelper.getNewItem(moduleName, dataPost, keyClient);
 
-  let newItem = null;
-  if (dataPost.module === "users") {
-    Profile.findById(dataPost.profile, (err, item) => {
-      if (!err) newItem = moduleHelper.getNewItem(dataPost.module, dataPost, item.keyClient);
-      else newItem = moduleHelper.getNewItem(dataPost.module, dataPost, keyClient);
-
-      newItem.save().then(() => elements(res, dataPost.module, initFilter, options));
-    });
-  } else {
-    newItem = moduleHelper.getNewItem(dataPost.module, dataPost, keyClient);
-    newItem.save().then(() => elements(res, dataPost.module, initFilter, options));
+    newItem.save().then(() => res.send({ status: "OK" }));
+  } catch (error) {
+    res.status(500).send({ status: errors.UNEXPECTED_ERROR });
   }
 });
 
 router.post("/edit", async (req, res) => {
-  let dataPost = { ...req.body };
-  let initFilter = { deleted: false };
-  let options = { page: dataPost.page ? dataPost.page : 1 };
-  let user = req.session.user;
-  let isSuperAdmin = user.profile == Config.ID_SUPERADMIN;
-  let keyClient = user.keyClient;
+  const { keyClient } = req.session.user;
+  const { module: moduleName, id } = req.body;
 
-  if (!isSuperAdmin) initFilter["keyClient"] = user.keyClient;
-  else keyClient = dataPost.keyClient;
+  try {
+    let module = moduleHelper.getClass(moduleName);
+    let newDataItem = { ...req.body };
+    delete newDataItem.id, delete newDataItem.module;
 
-  let module = moduleHelper.getClass(dataPost.module);
-  let newDataItem = { ...dataPost };
-  delete newDataItem.id, delete newDataItem.module, delete newDataItem.keyClient;
+    let itemUpdated = await module.findOneAndUpdate({ _id: id, keyClient, deleted: false }, newDataItem, { new: true }).exec();
 
-  module.findByIdAndUpdate(dataPost.id, newDataItem, { new: true }, (err, itemUpdated) => {
-    elements(res, dataPost.module, initFilter, options);
-  });
+    if (!itemUpdated) res.status(400).send({ status: errors.ERROR_NO_UPDATED });
+    else res.send({ status: "OK" });
+  } catch (error) {
+    res.status(500).send({ status: errors.UNEXPECTED_ERROR });
+  }
 });
 
 router.post("/delete", async (req, res) => {
-  let dataPost = { ...req.body };
-  let initFilter = { deleted: false };
-  let options = { page: dataPost.page ? dataPost.page : 1 };
-  let user = req.session.user;
-  let isSuperAdmin = user.profile == Config.ID_SUPERADMIN;
+  const { keyClient } = req.session.user;
+  const { module: moduleName, id } = req.body;
 
-  if (!isSuperAdmin) initFilter["keyClient"] = user.keyClient;
+  try {
+    let module = moduleHelper.getClass(moduleName);
+    let itemUpdated = await module.findOneAndUpdate({ _id: id, keyClient, deleted: false }, { deleted: true }, { new: true }).exec();
 
-  let module = moduleHelper.getClass(dataPost.module);
-
-  module.findByIdAndUpdate(dataPost.id, { deleted: true }, { new: true }, (err, itemUpdated) => {
-    elements(res, dataPost.module, initFilter, options);
-  });
+    if (!itemUpdated) res.status(400).send({ status: errors.ERROR_NO_DELETED });
+    else res.send({ status: "OK" });
+  } catch (error) {
+    res.status(500).send({ status: errors.UNEXPECTED_ERROR });
+  }
 });
 
 router.post("/toggleActive", async (req, res) => {
-  let dataPost = { ...req.body };
-  let initFilter = { deleted: false };
-  let options = { page: dataPost.page ? dataPost.page : 1 };
-  let user = req.session.user;
-  let isSuperAdmin = user.profile == Config.ID_SUPERADMIN;
+  const { keyClient } = req.session.user;
+  const { module: moduleName, id, active } = req.body;
 
-  if (!isSuperAdmin) initFilter["keyClient"] = user.keyClient;
+  try {
+    let module = moduleHelper.getClass(moduleName);
+    let itemUpdated = await module.findOneAndUpdate({ _id: id, keyClient, deleted: false }, { active }, { new: true }).exec();
 
-  let module = moduleHelper.getClass(dataPost.module);
-
-  module.findByIdAndUpdate(dataPost.id, { active: dataPost.active }, { new: true }, (err, itemUpdated) => {
-    elements(res, dataPost.module, initFilter, options);
-  });
+    if (!itemUpdated) res.status(400).send({ status: errors.ERROR_NO_UPDATED });
+    else res.send({ status: "OK" });
+  } catch (error) {
+    res.status(500).send({ status: errors.UNEXPECTED_ERROR });
+  }
 });
 
-router.post("/getItemsActivesByAutocomplete", async (req, res) => {
-  let dataPost = { ...req.body };
-  let initFilter = { deleted: false, active: true };
-  let options = { page: -1 };
-  let user = req.session.user;
-  let isSuperAdmin = user.profile == Config.ID_SUPERADMIN;
-  let keyClient = user.keyClient;
-
-  initFilter["keyClient"] = isSuperAdmin ? dataPost.keyClient : user.keyClient;
-
-  let module = moduleHelper.getClass(dataPost.module);
-  elements(res, dataPost.module, initFilter, options);
-});
+//TODO: NEED TESTING
+// router.post("/getItemsActivesByAutocomplete", async (req, res) => {
+//   const { keyClient } = req.session.user;
+//   const { module: moduleName } = req.body;
+//   const initFilter = { deleted: false, active: true, keyClient };
+//   const options = { page: -1 };
+//   try {
+//     let module = moduleHelper.getClass(moduleName);
+//     getItems(res, moduleName, initFilter, options);
+//   } catch (error) {
+//     res.status(500).send({ status: errors.UNEXPECTED_ERROR });
+//   }
+// });
 
 router.post("/getItemsActivesBySelect", async (req, res) => {
-  let dataPost = { ...req.body };
-  let initFilter = { deleted: false, active: true };
-  let user = req.session.user;
-  let isSuperAdmin = req.session.user.profile == Config.ID_SUPERADMIN;
-  let keyClient = user.keyClient;
+  const { keyClient } = req.session.user;
+  const { module: moduleName } = req.body;
+  const initFilter = { deleted: false, active: true, keyClient };
 
-  initFilter["keyClient"] = isSuperAdmin ? dataPost.keyClient : user.keyClient;
-
-  let module = moduleHelper.getClass(dataPost.module);
+  let module = moduleHelper.getClass(moduleName);
 
   module.find(initFilter, (err, docs) => {
-    let items = {};
-    docs.forEach((doc) => {
-      items[doc._id] = doc.name;
-    });
-
+    const items = docs.reduce((acc, { _id, name }) => ({ ...acc, [_id]: name }), {});
     res.send({ status: "OK", items });
   });
 });
 
+//TODO: need testing can be improve
 router.post("/checkUnique", async (req, res) => {
-  let dataPost = { ...req.body };
   let user = req.session.user;
-  let isSuperAdmin = user.profile == Config.ID_SUPERADMIN;
-  let initFilter = { deleted: false };
+  let dataPost = { ...req.body };
+  let initFilter = { deleted: false, keyClient: user.keyClient };
 
-  if (dataPost.module !== "users") initFilter.keyClient = isSuperAdmin ? dataPost.keyClient : user.keyClient;
+  if (dataPost.module == "clients" && dataPost.nameInput == "key") delete initFilter.keyClient;
 
   let module = moduleHelper.getClass(dataPost.module);
 
@@ -153,81 +134,45 @@ router.post("/checkUnique", async (req, res) => {
   });
 });
 
-router.post("/editFields", async (req, res) => {
+router.post("/checkUniqueGlobal", async (req, res) => {
+  let user = req.session.user;
   let dataPost = { ...req.body };
   let initFilter = { deleted: false };
-  let options = { page: dataPost.page ? dataPost.page : 1 };
-  let user = req.session.user;
-  let fields = JSON.parse(dataPost.value);
 
-  checkIsSuperAdmin(res, user, () => {
-    Module.findByIdAndUpdate(dataPost.id, { fields }, { new: true }, (err, itemUpdated) => {
-      elements(res, "modules", initFilter, options);
-    });
+  let module = moduleHelper.getClass(dataPost.module);
+
+  initFilter[dataPost.nameInput] = dataPost.value;
+
+  module.find(initFilter, (err, elements) => {
+    if (elements.length > 1) res.send({ status: "OK", error: "DUPLICATE" });
+    else if (elements.length == 0) res.send({ status: "OK", error: "NONE" });
+    else {
+      let value =
+        dataPost.isAnObjectId && dataPost.exception !== null ? String(elements[0][dataPost.nameInput]) : elements[0][dataPost.nameInput];
+      if (value === dataPost.exception && dataPost.exception !== null) res.send({ status: "OK", error: "NONE" });
+      else res.send({ status: "OK", error: "DUPLICATE" });
+    }
   });
+});
+
+router.post("/editFields", async (req, res) => {
+  const { value, id } = req.body;
+  const { keyClient } = req.session.user;
+
+  const itemUpdated = await Module.findOneAndUpdate({ keyClient, _id: ObjectId(id) }, { fields: JSON.parse(value) }, { new: true }).lean();
+
+  if (!itemUpdated) res.status(400).send({ status: errors.ERROR_NO_UPDATED });
+  else res.send({ status: "OK" });
 });
 
 router.post("/editOptions", async (req, res) => {
-  let dataPost = { ...req.body };
-  let initFilter = { deleted: false };
-  let optionsParams = { page: dataPost.page ? dataPost.page : 1 };
-  let user = req.session.user;
-  let options = JSON.parse(dataPost.value);
+  const { value, id } = req.body;
+  const { keyClient } = req.session.user;
 
-  checkIsSuperAdmin(res, user, () => {
-    Module.findByIdAndUpdate(dataPost.id, { options }, { new: true }, (err, itemUpdated) => {
-      elements(res, "modules", initFilter, optionsParams);
-    });
-  });
+  const itemUpdated = await Module.findOneAndUpdate({ keyClient, _id: ObjectId(id) }, { options: JSON.parse(value) }, { new: true }).lean();
+
+  if (!itemUpdated) res.status(400).send({ status: errors.ERROR_NO_UPDATED });
+  else res.send({ status: "OK" });
 });
-
-elements = (res, moduleName, initFilter, optionsParams = {}) => {
-  let module = moduleHelper.getClass(moduleName);
-  Module.findOne({ key: moduleName }, (err, item) => {
-    let fieldsAllowed = [];
-    let keysFieldsAllowed = [];
-    item.fields.forEach((field) => {
-      if ("visibleTable" in field && field.visibleTable) {
-        fieldsAllowed.push(field);
-        keysFieldsAllowed.push(field.key);
-      }
-    });
-
-    let options = {};
-    if (optionsParams.page !== -1) options = { limit: 8, ...optionsParams };
-
-    module.paginate(initFilter, options, (err, result) => {
-      let itemsData = [];
-      result.docs.forEach((doc) => {
-        itemsData.push(getItemData(doc, fieldsAllowed, keysFieldsAllowed));
-      });
-
-      res.send({ status: "OK", items: itemsData, totalPages: result.totalPages, totalItems: result.totalDocs });
-    });
-  });
-};
-
-function getItemData(item, fieldsAllowed, keysFieldsAllowed = []) {
-  let data = item.toObject();
-  delete data.password, delete data.__v;
-  if (fieldsAllowed.length > 0) {
-    Object.keys(data).forEach((key) => {
-      if (!keysFieldsAllowed.includes(key)) {
-        //       delete data[key];
-      } else {
-        let field = fieldsAllowed.filter((f) => f.key === key)[0];
-        if (
-          "values" in field &&
-          field.typew === "autocomplete" &&
-          (!("isMultiple" in field) || ("isMultiple" in field && !field.isMultiple))
-        ) {
-          let newKey = key + "_label";
-          data[newKey] = field.values[data[key]];
-        }
-      }
-    });
-  }
-  return data;
-}
 
 module.exports = router;

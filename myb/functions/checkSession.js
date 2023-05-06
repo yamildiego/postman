@@ -1,57 +1,35 @@
-const Config = require("../constants/Config");
-const Errors = require("../constants/Errors");
 const User = require("../models/User");
 const Profile = require("../models/Profile");
 const Client = require("../models/Client");
 
-module.exports = (dataPost, session, url, callback) => {
-  let status = "OK";
-  let userData = null;
+const getItemData = require("../functions/getItemData");
 
-  if (session.user)
-    User.findById(session.user._id, (err, user) => {
-      if (err) status = Errors.UNEXPECTED_ERROR;
-      else {
-        userData = getItemData(user);
-        if (!user) status = Errors.SESSION_EXPIRED;
-        else if (!user.active) status = Errors.USER_NO_ACTIVE;
+const errors = require("../constants/errors");
 
-        if (userData === null) status = Errors.UNEXPECTED_ERROR;
+module.exports = async (dataPost, res, req, callback) => {
+  if (req.url !== "/api/login" && req.url !== "/api/logout") {
+    let userSession = req.session.user;
+    try {
+      if (!userSession) return res.status(400).send({ status: errors.SESSION_EXPIRED });
 
-        if (!user.keyClient) {
-          if (session.user.profile !== Config.ID_SUPERADMIN) status = Errors.NO_KEY_CLIENT;
-        } else {
-          // if (session.user.profile !== Config.ID_SUPERADMIN && user.keyClient !== dataPost.keyClient &&)
-          // status = Errors.WRONG_KEY_CLIENT;
-        }
-        // if (url !== "/api/loadClient" && !dataPost.keyClient && !user.keyClient) status = Errors.UNDEFINED_KEY_CLIENT;
+      const user = await User.findById(userSession._id);
+      if (!user) return res.status(400).send({ status: errors.UNEXPECTED_ERROR });
+      if (!user.active) return res.status(400).send({ status: errors.USER_NO_ACTIVE });
 
-        if (status === "OK") {
-          Profile.findById(user.profile, (err, profile) => {
-            if (!profile) {
-              status = Errors.UNEXPECTED_ERROR;
-              callback({ status, user: null });
-            } else {
-              if (!profile.active) status = Errors.PROFILE_NO_ACTIVE;
-              if (status === "OK") {
-                Client.find({ key: profile.keyClient }, (err, client) => {
-                  if (client.length < 1) status = Errors.UNEXPECTED_ERROR;
-                  else if (!client[0].active) status = Errors.CLIENT_NO_ACTIVE;
-                  callback({ status, user: status === "OK" ? userData : null });
-                });
-              } else callback({ status, user: null });
-            }
-          });
-        } else callback({ status, user: null });
-      }
-    });
-  else callback({ status: Errors.SESSION_EXPIRED, user: userData });
+      const profile = await Profile.findById(user.profile);
+      if (!profile) return res.status(400).send({ status: errors.UNEXPECTED_ERROR });
+      if (!profile.active) return res.status(400).send({ status: errors.PROFILE_NO_ACTIVE });
+
+      const client = await Client.findOne({ key: user.keyClient });
+      if (!client) return res.status(400).send({ status: errors.UNEXPECTED_ERROR });
+      if (!client.active) return res.status(400).send({ status: errors.CLIENT_NO_ACTIVE });
+
+      userData = getItemData(user);
+
+      if (userData === null) return res.status(400).send({ status: errors.UNEXPECTED_ERROR });
+      else callback();
+    } catch (error) {
+      return res.status(400).send({ status: errors.UNEXPECTED_ERROR });
+    }
+  } else callback();
 };
-
-function getItemData(item) {
-  if (item) {
-    let data = item.toObject();
-    delete data.password, delete data.__v;
-    return data;
-  } else return null;
-}

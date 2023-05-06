@@ -3,30 +3,42 @@ const router = express.Router();
 const md5 = require("md5");
 
 const User = require("../models/User");
-const Config = require("../constants/Config");
+
+const errors = require("../constants/errors");
 
 router.post("/assignPassword", async (req, res) => {
-  let dataPost = { ...req.body };
-  let initFilter = { deleted: false };
-  let isSuperAdmin = req.session.user.profile == Config.ID_SUPERADMIN;
-  if (!isSuperAdmin) initFilter["keyClient"] = dataPost.keyClient;
-  let optionsParams = { page: dataPost.page ? dataPost.page : 1 };
-  let options = optionsParams.page !== -1 ? { limit: 8, ...optionsParams } : {};
+  try {
+    const { id, password } = req.body;
+    const { keyClient } = req.session.user;
 
-  User.findByIdAndUpdate(dataPost.id, { password: md5(dataPost.password) }, { new: true }, (err, itemUpdated) => {
-    User.paginate(initFilter, options, (err, result) => {
-      let itemsData = [];
-      result.docs.forEach((item) => itemsData.push(getItemData(item)));
+    const itemUpdated = await User.findByIdAndUpdate(id, { password: md5(password) }, { new: true }).lean();
 
-      res.send({ status: "OK", items: itemsData, totalPages: result.totalPages, totalItems: result.totalDocs });
-    });
-  });
+    if (!itemUpdated) res.status(400).send({ status: errors.ERROR_NO_UPDATED });
+    else res.send({ status: "OK" });
+  } catch (error) {
+    res.status(500).send({ status: errors.UNEXPECTED_ERROR });
+  }
 });
 
-function getItemData(item) {
-  let data = item.toObject();
-  delete data.password;
-  return data;
-}
+router.post("/updatePassword", async (req, res) => {
+  try {
+    const { id, current_password, new_password } = req.body;
+    const { username, keyClient } = req.session.user;
+
+    let user = await User.findOne({ _id: id, username, password: md5(current_password) }).lean();
+
+    if (!user)
+      res.status(400).send({ status: errors.ERROR_FORM, errors: { current_password: { error: true, keyHelperText: "WRONG_DATA" } } });
+    else {
+      await User.findByIdAndUpdate(id, { password: md5(new_password) }, { new: true }).lean();
+
+      res.send({ status: "OK" });
+    }
+  } catch (error) {
+    res.status(500).send({ status: errors.UNEXPECTED_ERROR });
+  }
+});
+
+const paginateUsers = async (filter, options) => await User.paginate(filter, options);
 
 module.exports = router;

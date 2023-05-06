@@ -4,14 +4,14 @@ const random = require("mongoose-simple-random");
 var ObjectId = require("mongodb").ObjectID;
 
 const UserSchema = mongoose.Schema({
-  user: String,
+  username: String,
+  password: String,
   profile: ObjectId,
   name: String,
   lastname: String,
   email: String,
-  password: String,
-  keyClient: String,
   active: Boolean,
+  keyClient: String,
   deleted: Boolean,
 });
 
