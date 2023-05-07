@@ -10,9 +10,6 @@ phases:
   build:
     commands:
       - npm run build
-  post_build:
-    commands:
-      - node index.js
 artifacts:
   files:
     - "**/*"
