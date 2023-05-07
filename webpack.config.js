@@ -1,10 +1,10 @@
 const path = require("path");
-const nodeExternals = require("webpack-node-externals");
+// const nodeExternals = require("webpack-node-externals");
 
 module.exports = {
   entry: "./index.js",
   output: {
-    filename: "server.js",
+    filename: "index.js",
     path: path.resolve(__dirname, "dist"),
   },
   resolve: {
@@ -14,26 +14,5 @@ module.exports = {
   },
   mode: "production",
   target: "node",
-  performance: {
-    hints: false,
-  },
-  externals: [
-    nodeExternals({
-      allowlist: [
-        "express",
-        "express-session",
-        "body-parser",
-        "cors",
-        "mongoose",
-        "md5",
-        "lodash",
-        "dotenv",
-        "nodemailer",
-        "mongoose-paginate-v2",
-        "mongoose-simple-random",
-        "joi",
-        "mongodb",
-      ],
-    }),
-  ],
+  // externals: [nodeExternals()],
 };
