@@ -12,7 +12,7 @@ const formatJoiErrors = require("../validations/formatJoiErrors");
 
 const getItemData = require("../functions/getItemData");
 
-const errors = require("../constants/errors");
+const errors = require("../consts/errors");
 
 router.post("/loadConfig", async (req, res) => {
   const user = req.session.user;

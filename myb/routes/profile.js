@@ -8,7 +8,7 @@ const User = require("../models/User");
 const Module = require("../models/Module");
 const Client = require("../models/Client");
 
-const errors = require("./../constants/errors");
+const errors = require("../consts/errors");
 
 router.post("/getProfiles", async (req, res) => {
   try {

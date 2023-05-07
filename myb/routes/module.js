@@ -7,7 +7,8 @@ const getItems = require("./../functions/getItems");
 const toMongooseFilter = require("./../functions/toMongooseFilter");
 const Profile = require("./../models/Profile");
 const Module = require("./../models/Module");
-const errors = require("../constants/errors");
+
+const errors = require("../consts/errors");
 
 router.post("/getItems", async (req, res) => {
   const { keyClient } = req.session.user;

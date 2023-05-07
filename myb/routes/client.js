@@ -13,7 +13,7 @@ const getItemData = require("../functions/getItemData");
 const clientValidation = require("../validations/clientValidation");
 const formatJoiErrors = require("../validations/formatJoiErrors");
 
-const errors = require("../constants/errors");
+const errors = require("../consts/errors");
 
 router.post("/getAllModules", async (req, res) => {
   try {

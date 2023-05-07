@@ -4,7 +4,7 @@ const md5 = require("md5");
 
 const User = require("../models/User");
 
-const errors = require("../constants/errors");
+const errors = require("../consts/errors");
 
 router.post("/assignPassword", async (req, res) => {
   try {
