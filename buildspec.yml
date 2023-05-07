@@ -10,6 +10,7 @@ phases:
   build:
     commands:
       - npm run build
+      - cp package.json build/
 artifacts:
   files:
     - "**/*"
