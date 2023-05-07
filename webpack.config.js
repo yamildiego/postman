@@ -1,11 +1,11 @@
 const path = require("path");
-// const nodeExternals = require("webpack-node-externals");
+const nodeExternals = require("webpack-node-externals");
 
 module.exports = {
   entry: "./index.js",
   output: {
     filename: "index.js",
-    path: path.resolve(__dirname, "dist"),
+    path: path.resolve(__dirname, "build"),
   },
   resolve: {
     fallback: {
@@ -14,5 +14,8 @@ module.exports = {
   },
   mode: "production",
   target: "node",
-  // externals: [nodeExternals()],
+  performance: {
+    hints: false,
+  },
+  externals: [nodeExternals()],
 };
