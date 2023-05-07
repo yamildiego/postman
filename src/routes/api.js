@@ -32,7 +32,7 @@ const websites = [
 ];
 
 router.get("/", async (req, res) => {
-  res.send({ status: "OK" });
+  res.send({ status: "OK 35" });
 });
 
 router.post("/contact", async (req, res) => {
