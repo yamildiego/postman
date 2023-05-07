@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const mongoosePaginate = require("mongoose-paginate-v2");
 const random = require("mongoose-simple-random");
-const locales = require("../constants/locales");
+const locales = require("../consts/locales");
 var ObjectId = require("mongodb").ObjectID;
 
 const ModuleSchema = mongoose.Schema({

@@ -1,4 +1,4 @@
-const { PAGE_LIMIT } = require("./../constants/constants");
+const { PAGE_LIMIT } = require("../consts/constants");
 const moduleHelper = require("./moduleHelper");
 const Module = require("./../models/Module");
 const getItemData = require("./getItemData");
