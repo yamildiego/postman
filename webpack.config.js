@@ -17,5 +17,23 @@ module.exports = {
   performance: {
     hints: false,
   },
-  externals: [nodeExternals()],
+  externals: [
+    nodeExternals({
+      allowlist: [
+        "express",
+        "express-session",
+        "body-parser",
+        "cors",
+        "mongoose",
+        "md5",
+        "lodash",
+        "dotenv",
+        "nodemailer",
+        "mongoose-paginate-v2",
+        "mongoose-simple-random",
+        "joi",
+        "mongodb",
+      ],
+    }),
+  ],
 };
