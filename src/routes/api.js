@@ -1,9 +1,22 @@
 const express = require("express");
 const router = express.Router();
 const sendEmail = require("../fuctions/sendEmail");
+const fs = require("fs");
+const xlsx = require("xlsx");
+const path = require("path");
 
 router.get("/", async (req, res) => {
   res.send({ status: "OK 35" });
+});
+
+router.get("/demo_brook", async (req, res) => {
+  const sheet = req.params.sheet ? req.params.sheet : 0;
+  const filePath = path.join(__dirname, "/CE.xlsx");
+  const workbook = xlsx.readFile(filePath);
+  const worksheet = workbook.Sheets[workbook.SheetNames[1]];
+  const jsonData = xlsx.utils.sheet_to_json(worksheet, { header: "A" });
+
+  res.json(jsonData);
 });
 
 router.post("/contact", async (req, res) => {
